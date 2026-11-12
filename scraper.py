@@ -10,6 +10,7 @@ User-Agent/viewport.
 
 import asyncio
 import logging
+import os
 import random
 import re
 from typing import Any
@@ -25,13 +26,21 @@ from playwright.async_api import (
 
 logger = logging.getLogger(__name__)
 
-# Pool di User-Agent desktop Chrome recenti (tutti Windows x64 coerenti con Sec-Ch-Ua e navigator.platform)
-_USER_AGENTS: list[tuple[str, str]] = [
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36", "131"),
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", "130"),
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36", "129"),
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36", "128"),
-]
+# User-Agent Chrome Windows. La versione major viene presa dal Chromium realmente
+# avviato, così UA, Sec-Ch-Ua (generato da Chromium stesso) e motore JS coincidono.
+_UA_TEMPLATE = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
+)
+
+# Marcatori della pagina di blocco Amazon servita agli IP datacenter (HTTP 503).
+_IP_BLOCK_MARKERS = ("ci dispiace", "sorry! something went wrong", "service unavailable")
+
+
+def _is_ip_block(status: int | None, title: str) -> bool:
+    """True se Amazon ha servito la pagina di blocco 'Ci dispiace' / 503."""
+    t = (title or "").lower()
+    return status == 503 or any(m in t for m in _IP_BLOCK_MARKERS)
 
 # --- Evolution 1: Resource Blocking ---
 # Blocchiamo solo immagini, video, font e tracker esterni.
@@ -107,6 +116,7 @@ class AmazonScraper:
         self._context: BrowserContext | None = None
         self._consecutive_blocks: int = 0
         self._warmed_up: bool = False
+        self._ip_blocked: bool = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -116,8 +126,16 @@ class AmazonScraper:
         """Avvia il browser Chromium con profilo stealth."""
         self._pw = await async_playwright().start()
 
+        # PROXY_URL opzionale (es. socks5://127.0.0.1:40000 di Cloudflare WARP su
+        # GitHub Actions). Se assente il traffico esce direttamente (PC di casa).
+        proxy_url = os.environ.get("PROXY_URL", "").strip()
+        proxy = {"server": proxy_url} if proxy_url else None
+        if proxy:
+            logger.info("Traffico browser instradato via proxy: %s", proxy_url)
+
         self._browser = await self._pw.chromium.launch(
             headless=True,
+            proxy=proxy,
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--disable-dev-shm-usage",
@@ -152,7 +170,8 @@ class AmazonScraper:
 
     async def _create_context(self) -> None:
         """Crea un nuovo browser context con UA e viewport casuali."""
-        ua_str, chrome_ver = random.choice(_USER_AGENTS)
+        chrome_major = self._browser.version.split(".")[0]  # type: ignore[union-attr]
+        ua_str = _UA_TEMPLATE.format(major=chrome_major)
         viewport = random.choice(_VIEWPORTS)
         # Leggera randomizzazione del viewport
         viewport = {
@@ -166,17 +185,11 @@ class AmazonScraper:
             viewport=viewport,
             locale="it-IT",
             timezone_id="Europe/Rome",
+            # Solo Accept-Language: gli header Sec-Fetch-* / Sec-Ch-Ua li genera
+            # Chromium per ogni richiesta. Forzarli qui li applicava anche a
+            # script e XHR (es. Sec-Fetch-Dest: document su un .js), segnale bot.
             extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                 "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Sec-Ch-Ua": f'"Google Chrome";v="{chrome_ver}", "Chromium";v="{chrome_ver}", "Not_A Brand";v="24"',
-                "Sec-Ch-Ua-Mobile": "?0",
-                "Sec-Ch-Ua-Platform": '"Windows"',
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
-                "Upgrade-Insecure-Requests": "1",
             },
         )
 
@@ -185,9 +198,6 @@ class AmazonScraper:
             """
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined,
-            });
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5],
             });
             Object.defineProperty(navigator, 'platform', {
                 get: () => 'Win32',
@@ -224,7 +234,18 @@ class AmazonScraper:
             logger.info("Inizializzazione sessione Amazon (ottenimento cookie)...")
             page = await self._context.new_page()
             await page.route("**/*", _block_resources)
-            await page.goto("https://www.amazon.it/", wait_until="domcontentloaded", timeout=20_000)
+            resp = await page.goto("https://www.amazon.it/", wait_until="domcontentloaded", timeout=20_000)
+            status = resp.status if resp else None
+            title = (await page.title()) or ""
+            if _is_ip_block(status, title):
+                self._ip_blocked = True
+                logger.error(
+                    "Amazon ha bloccato questo IP già sulla homepage (HTTP %s, titolo '%s'). "
+                    "Su GitHub Actions serve PROXY_URL (Cloudflare WARP) o un IP residenziale.",
+                    status, title,
+                )
+                return
+            self._ip_blocked = False
             cookie_btn = await page.query_selector("#sp-cc-accept, input[name='acceptCookie']")
             if cookie_btn:
                 try:
@@ -235,7 +256,7 @@ class AmazonScraper:
             else:
                 await asyncio.sleep(2)
             self._warmed_up = True
-            logger.info("Sessione Amazon inizializzata con successo")
+            logger.info("Sessione Amazon inizializzata con successo (HTTP %s, titolo '%s')", status, title[:60])
         except Exception as exc:
             logger.warning("Warmup sessione fallito (proseguo comunque): %s", exc)
         finally:
@@ -304,10 +325,17 @@ class AmazonScraper:
             await page.route("**/*", _block_resources)
 
             logger.debug("Navigazione: %s", url[:120])
-            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            resp = await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
 
             # Rileva CAPTCHA e Robot Check (in italiano e in inglese)
             title = (await page.title()) or ""
+
+            # Blocco IP (pagina 'Ci dispiace' / 503): inutile attendere div[data-asin]
+            status = resp.status if resp else None
+            if _is_ip_block(status, title):
+                self._ip_blocked = True
+                logger.warning("Blocco IP Amazon (HTTP %s, titolo '%s'): %s", status, title, url[:80])
+                return []
             page_text = (await page.text_content("body")) or ""
             page_lower = (title + " " + page_text).lower()
 
@@ -399,6 +427,11 @@ class AmazonScraper:
 
         # Inizializza cookie di sessione reali se non ancora fatto
         await self._warmup_session()
+        if self._ip_blocked:
+            # Riprova il warmup al prossimo ciclo invece di sprecare N timeout
+            self._warmed_up = False
+            logger.error("Ciclo saltato: IP bloccato da Amazon")
+            return []
 
         for i, (url, is_wh) in enumerate(all_urls):
             try:

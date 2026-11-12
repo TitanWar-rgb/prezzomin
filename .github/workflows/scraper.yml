@@ -38,6 +38,44 @@ jobs:
         run: |
           playwright install --with-deps chromium
 
+      # Amazon blocca i range IP di Azure (AS8075) con la pagina 503 "Ci dispiace".
+      # Cloudflare WARP (gratuito, client ufficiale) fa uscire il traffico del
+      # browser dagli IP consumer di Cloudflare. Modalità proxy: solo Playwright
+      # passa da WARP; Telegram e git push restano sulla rete diretta.
+      - name: Avvia Cloudflare WARP (proxy SOCKS5 locale)
+        id: warp
+        continue-on-error: true
+        run: |
+          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+          sudo apt-get update -q
+          sudo apt-get install -y -q cloudflare-warp
+          warp-cli --accept-tos registration new
+          warp-cli --accept-tos mode proxy
+          warp-cli --accept-tos proxy port 40000
+          warp-cli --accept-tos connect
+          for i in $(seq 1 20); do
+            if curl -s --max-time 5 -x socks5h://127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace | grep -q "warp=on"; then
+              echo "WARP connesso"
+              echo "PROXY_URL=socks5://127.0.0.1:40000" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::WARP non connesso, proseguo con IP diretto"
+          exit 1
+
+      - name: Diagnostica raggiungibilità Amazon.it
+        continue-on-error: true
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          echo "IP diretto (Azure): $(curl -s --max-time 10 https://www.cloudflare.com/cdn-cgi/trace | grep '^ip=')"
+          echo "amazon.it diretto -> HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -A "$UA" https://www.amazon.it/)"
+          if [ -n "${PROXY_URL:-}" ]; then
+            echo "IP via WARP: $(curl -s --max-time 10 -x socks5h://127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(ip|warp)=' | tr '\n' ' ')"
+            echo "amazon.it via WARP -> HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -A "$UA" -x socks5h://127.0.0.1:40000 https://www.amazon.it/)"
+          fi
+
       - name: Esegui sessione continua di monitoraggio (27 minuti no-stop)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
