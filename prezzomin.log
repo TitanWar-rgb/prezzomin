@@ -1,0 +1,89 @@
+2026-11-12 13:24:56,845 [INFO] prezzomin: PrezzoMin v2 — Monitoraggio Errori di Prezzo Amazon Italia
+2026-11-12 13:24:56,846 [INFO] prezzomin: Configurazione caricata: 6 URL, 38 brand, 27 blacklist keywords
+2026-11-12 13:24:56,854 [INFO] database: Database inizializzato: C:\Users\Titan\Desktop\prezzomin\prezzomin.db
+2026-11-12 13:25:02,632 [INFO] scraper: Nuovo context — UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36, viewport: {'width': 1526, 'height': 862}
+2026-11-12 13:25:02,637 [INFO] scraper: Browser Chromium avviato con successo
+2026-11-12 13:25:05,814 [WARNING] notifier: Errore invio Telegram (tentativo 1/3): 400 Client Error: Bad Request for url: https://api.telegram.org/bot9227948442:AAEJI1GWY22Ip31wB7vEi_LMh-mYIVBMNO0/sendMessage
+2026-11-12 13:25:08,020 [WARNING] notifier: Errore invio Telegram (tentativo 2/3): 400 Client Error: Bad Request for url: https://api.telegram.org/bot9227948442:AAEJI1GWY22Ip31wB7vEi_LMh-mYIVBMNO0/sendMessage
+2026-11-12 13:25:12,223 [WARNING] notifier: Errore invio Telegram (tentativo 3/3): 400 Client Error: Bad Request for url: https://api.telegram.org/bot9227948442:AAEJI1GWY22Ip31wB7vEi_LMh-mYIVBMNO0/sendMessage
+2026-11-12 13:25:12,224 [ERROR] notifier: Impossibile inviare il messaggio dopo 3 tentativi
+2026-11-12 13:25:12,225 [INFO] prezzomin: ==================================================
+2026-11-12 13:25:12,226 [INFO] prezzomin: Avvio scansione…
+2026-11-12 13:25:12,226 [INFO] scraper: Warehouse Deals abilitati: 2 URL extra
+2026-11-12 13:25:18,166 [INFO] prezzomin: Segnale SIGINT ricevuto — arresto in corso…
+2026-11-12 13:25:18,171 [ERROR] scraper: Errore scraping pagina https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true: Page.wait_for_selector: Target page, context or browser has been closed
+Call log:
+  - waiting for locator("div[data-asin]") to be visible
+    - locator resolved to 53 elements. Proceeding with the first one: <div data-asin="" data-index="0" class="a-section a-spacing-none s-result-item s-flex-full-width s-border-bottom-none s-widget s-widget-spacing-large">…</div>
+
+2026-11-12 13:25:18,172 [INFO] scraper: Estratti 0 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:25:20,392 [INFO] prezzomin: Segnale SIGINT ricevuto — arresto in corso…
+2026-11-12 13:25:20,608 [INFO] prezzomin: Segnale SIGINT ricevuto — arresto in corso…
+2026-11-12 13:25:20,855 [INFO] prezzomin: Segnale SIGINT ricevuto — arresto in corso…
+2026-11-12 13:25:22,185 [INFO] prezzomin: Segnale SIGINT ricevuto — arresto in corso…
+2026-11-12 13:25:24,803 [ERROR] scraper: Errore fatale sulla URL https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true: Target page, context or browser has been closed
+2026-11-12 13:26:11,226 [INFO] prezzomin: PrezzoMin v2 — Monitoraggio Errori di Prezzo Amazon Italia
+2026-11-12 13:26:11,227 [INFO] prezzomin: Configurazione caricata: 6 URL, 38 brand, 27 blacklist keywords
+2026-11-12 13:26:11,228 [INFO] database: Database inizializzato: C:\Users\Titan\Desktop\prezzomin\prezzomin.db
+2026-11-12 13:26:11,463 [INFO] scraper: Nuovo context — UA: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/, viewport: {'width': 1934, 'height': 1070}
+2026-11-12 13:26:11,468 [INFO] scraper: Browser Chromium avviato con successo
+2026-11-12 13:26:11,652 [INFO] prezzomin: ==================================================
+2026-11-12 13:26:11,652 [INFO] prezzomin: Avvio scansione…
+2026-11-12 13:26:11,652 [INFO] scraper: Warehouse Deals abilitati: 2 URL extra
+2026-11-12 13:26:18,153 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:26:26,884 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true
+2026-11-12 13:26:35,360 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:26:43,486 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:26:55,366 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true
+2026-11-12 13:27:07,426 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:27:16,078 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A1231
+2026-11-12 13:27:24,781 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12
+2026-11-12 13:27:24,782 [INFO] scraper: Scraping completato: 108 prodotti unici da 8 URL
+2026-11-12 13:27:24,782 [INFO] prezzomin: Prodotti trovati: 108
+2026-11-12 13:27:24,783 [INFO] prezzomin: Alert inviati in questa scansione: 0
+2026-11-12 13:27:24,784 [INFO] prezzomin: Prossima scansione tra 144 secondi
+2026-11-12 13:29:48,788 [INFO] prezzomin: ==================================================
+2026-11-12 13:29:48,789 [INFO] prezzomin: Avvio scansione…
+2026-11-12 13:29:48,789 [INFO] scraper: Warehouse Deals abilitati: 2 URL extra
+2026-11-12 13:29:55,064 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:30:04,498 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true
+2026-11-12 13:30:15,110 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:30:24,640 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:30:34,422 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true
+2026-11-12 13:30:47,138 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:30:55,978 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A1231
+2026-11-12 13:31:06,369 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12
+2026-11-12 13:31:06,369 [INFO] scraper: Scraping completato: 109 prodotti unici da 8 URL
+2026-11-12 13:31:06,370 [INFO] prezzomin: Prodotti trovati: 109
+2026-11-12 13:31:06,370 [INFO] prezzomin: Alert inviati in questa scansione: 0
+2026-11-12 13:31:06,371 [INFO] prezzomin: Prossima scansione tra 254 secondi
+2026-11-12 13:35:20,385 [INFO] prezzomin: ==================================================
+2026-11-12 13:35:20,385 [INFO] prezzomin: Avvio scansione…
+2026-11-12 13:35:20,386 [INFO] scraper: Warehouse Deals abilitati: 2 URL extra
+2026-11-12 13:35:29,365 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:35:41,983 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true
+2026-11-12 13:35:54,799 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:36:04,077 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:36:13,417 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true
+2026-11-12 13:36:22,853 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:36:34,334 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A1231
+2026-11-12 13:36:44,211 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12
+2026-11-12 13:36:44,213 [INFO] scraper: Scraping completato: 109 prodotti unici da 8 URL
+2026-11-12 13:36:44,213 [INFO] prezzomin: Prodotti trovati: 109
+2026-11-12 13:36:44,215 [INFO] prezzomin: Alert inviati in questa scansione: 0
+2026-11-12 13:36:44,219 [INFO] prezzomin: Prossima scansione tra 284 secondi
+2026-11-12 13:41:28,233 [INFO] prezzomin: ==================================================
+2026-11-12 13:41:28,234 [INFO] prezzomin: Avvio scansione…
+2026-11-12 13:41:28,234 [INFO] scraper: Warehouse Deals abilitati: 2 URL extra
+2026-11-12 13:41:35,404 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:41:45,408 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true
+2026-11-12 13:42:00,283 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:42:09,394 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true
+2026-11-12 13:42:19,925 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true
+2026-11-12 13:42:31,338 [INFO] scraper: Estratti 27 prodotti da https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true
+2026-11-12 13:42:40,561 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A1231
+2026-11-12 13:42:50,466 [INFO] scraper: Estratti 3 prodotti da https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12
+2026-11-12 13:42:50,467 [INFO] scraper: Scraping completato: 108 prodotti unici da 8 URL
+2026-11-12 13:42:50,467 [INFO] prezzomin: Prodotti trovati: 108
+2026-11-12 13:42:50,470 [INFO] prezzomin: Alert inviati in questa scansione: 0
+2026-11-12 13:42:50,472 [INFO] prezzomin: Prossima scansione tra 198 secondi

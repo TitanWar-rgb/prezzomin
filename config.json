@@ -1,0 +1,38 @@
+{
+  "TELEGRAM_BOT_TOKEN": "9227948442:AAEJI1GWY22Ip31wB7vEi_LMh-mYIVBMNO0",
+  "TELEGRAM_CHAT_ID": "6804237584",
+  "MIN_DISCOUNT_PERCENT": 55,
+  "MAX_ABS_PRICE_FOR_BRANDS": 150,
+  "SCAN_INTERVAL_MIN": 120,
+  "SCAN_INTERVAL_MAX": 300,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true"
+  ],
+  "BRAND_WHITELIST": [
+    "Apple", "Asus", "Lenovo", "Dell", "HP", "Samsung", "MSI", "Acer",
+    "Sony", "AMD", "Intel", "Nvidia", "Logitech", "Microsoft", "Corsair",
+    "Razer", "Kingston", "Western Digital", "Seagate", "LG", "BenQ",
+    "Gigabyte", "EVGA", "Sapphire", "XFX", "Crucial", "HyperX",
+    "SteelSeries", "Noctua", "be quiet!", "Cooler Master", "NZXT",
+    "Fractal Design", "Huawei", "Xiaomi", "OnePlus", "Google", "Nothing"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "cover", "pellicola", "cavo", "ricambio", "manuale",
+    "ricondizionato", "usato", "refurbished", "used", "case", "protezione",
+    "supporto", "staffa", "adattatore", "prolunga", "adesivo", "sticker",
+    "pulizia", "panno", "borsa", "zaino", "tracolla", "cinturino",
+    "ricambio", "sostituzione", "compatibile con"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": true,
+  "WAREHOUSE_SEARCH_URLS": [
+    "https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A12319843031&s=price-asc-rank&fs=true",
+    "https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12319843031&s=price-asc-rank&fs=true"
+  ],
+  "MIN_DISCOUNT_PERCENT_WAREHOUSE": 40
+}

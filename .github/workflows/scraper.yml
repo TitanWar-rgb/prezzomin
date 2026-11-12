@@ -1,0 +1,55 @@
+name: PrezzoMin Amazon Monitor
+
+on:
+  schedule:
+    # Esegue ogni 30 minuti (a minuto :00 e :30 di ogni ora)
+    - cron: '*/30 * * * *'
+  # Permette di avviare o testare la scansione manualmente dall'interfaccia web di GitHub
+  workflow_dispatch:
+
+concurrency:
+  group: prezzomin-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v4
+
+      - name: Configura Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Installa dipendenze Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Installa Chromium per Playwright
+        run: |
+          playwright install --with-deps chromium
+
+      - name: Esegui sessione continua di monitoraggio (27 minuti no-stop)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_MINUTES: 27
+        run: |
+          python main.py
+
+      - name: Salva database storico (Anti-duplicati)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prezzomin.db
+          git commit -m "Aggiorna storico ASIN notificati [skip ci]" || echo "Nessun nuovo prodotto da salvare"
+          git push
