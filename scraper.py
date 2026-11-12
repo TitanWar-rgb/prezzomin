@@ -25,23 +25,21 @@ from playwright.async_api import (
 
 logger = logging.getLogger(__name__)
 
-# Pool di User-Agent desktop Chrome recenti
-_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+# Pool di User-Agent desktop Chrome recenti (tutti Windows x64 coerenti con Sec-Ch-Ua e navigator.platform)
+_USER_AGENTS: list[tuple[str, str]] = [
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36", "131"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", "130"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36", "129"),
+    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36", "128"),
 ]
 
 # --- Evolution 1: Resource Blocking ---
-# Non blocchiamo 'stylesheet': Amazon verifica il layout CSS per identificare i bot
+# Blocchiamo solo immagini, video, font e tracker esterni.
+# NON blocchiamo stylesheet né domini interni amazon (come unagi o fls) che causerebbero l'errore "Ci dispiace"
 BLOCKED_RESOURCE_TYPES = {"image", "media", "font"}
 BLOCKED_URL_PATTERNS = [
     "googlesyndication", "doubleclick", "google-analytics", "googletagmanager",
-    "facebook", "amazon-adsystem", "criteo", "hotjar", "cloudfront.net/images",
-    "fls-na.amazon", "unagi.amazon", "completion.amazon",
+    "facebook", "criteo", "hotjar",
 ]
 
 # --- Evolution 2: Condition keywords ---
@@ -125,6 +123,7 @@ class AmazonScraper:
                 "--disable-dev-shm-usage",
                 "--no-sandbox",
             ],
+            ignore_default_args=["--enable-automation"],
         )
 
         await self._create_context()
@@ -153,24 +152,24 @@ class AmazonScraper:
 
     async def _create_context(self) -> None:
         """Crea un nuovo browser context con UA e viewport casuali."""
-        ua = random.choice(_USER_AGENTS)
+        ua_str, chrome_ver = random.choice(_USER_AGENTS)
         viewport = random.choice(_VIEWPORTS)
         # Leggera randomizzazione del viewport
         viewport = {
             "width": viewport["width"] + random.randint(-15, 15),
             "height": viewport["height"] + random.randint(-15, 15),
         }
-        logger.info("Nuovo context — UA: %s, viewport: %s", ua[:60], viewport)
+        logger.info("Nuovo context — UA: %s, viewport: %s", ua_str[:60], viewport)
 
         self._context = await self._browser.new_context(  # type: ignore[union-attr]
-            user_agent=ua,
+            user_agent=ua_str,
             viewport=viewport,
             locale="it-IT",
             timezone_id="Europe/Rome",
             extra_http_headers={
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                 "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                "Sec-Ch-Ua": f'"Google Chrome";v="{chrome_ver}", "Chromium";v="{chrome_ver}", "Not_A Brand";v="24"',
                 "Sec-Ch-Ua-Mobile": "?0",
                 "Sec-Ch-Ua-Platform": '"Windows"',
                 "Sec-Fetch-Dest": "document",
@@ -230,9 +229,11 @@ class AmazonScraper:
             if cookie_btn:
                 try:
                     await cookie_btn.click()
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
                 except Exception:
                     pass
+            else:
+                await asyncio.sleep(2)
             self._warmed_up = True
             logger.info("Sessione Amazon inizializzata con successo")
         except Exception as exc:
