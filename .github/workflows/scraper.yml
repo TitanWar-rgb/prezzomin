@@ -98,5 +98,5 @@ jobs:
           git add prezzomin.db
           git commit -m "Aggiorna storico ASIN notificati [skip ci]" || echo "Nessun nuovo prodotto da salvare"
           # Se nel frattempo main è avanzato (es. push di codice), riallinea prima di pushare
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push
