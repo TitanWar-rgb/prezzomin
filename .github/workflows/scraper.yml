@@ -6,6 +6,11 @@ on:
     - cron: '*/30 * * * *'
   # Permette di avviare o testare la scansione manualmente dall'interfaccia web di GitHub
   workflow_dispatch:
+    inputs:
+      test_telegram:
+        description: 'Invia il messaggio di avvio su Telegram (test dei secret)'
+        type: boolean
+        default: false
 
 concurrency:
   group: prezzomin-monitor
@@ -81,6 +86,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_MINUTES: 27
+          # Sui run schedulati inputs è vuoto, quindi resta 'false'
+          SEND_STARTUP_MSG: ${{ inputs.test_telegram && 'true' || 'false' }}
         run: |
           python main.py
 
@@ -90,4 +97,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add prezzomin.db
           git commit -m "Aggiorna storico ASIN notificati [skip ci]" || echo "Nessun nuovo prodotto da salvare"
+          # Se nel frattempo main è avanzato (es. push di codice), riallinea prima di pushare
+          git pull --rebase origin main
           git push
