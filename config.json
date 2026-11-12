@@ -1,18 +1,18 @@
 {
-  "TELEGRAM_BOT_TOKEN": "9227948442:AAEJI1GWY22Ip31wB7vEi_LMh-mYIVBMNO0",
-  "TELEGRAM_CHAT_ID": "6804237584",
+  "TELEGRAM_BOT_TOKEN": "YOUR_BOT_TOKEN_HERE",
+  "TELEGRAM_CHAT_ID": "YOUR_CHAT_ID_HERE",
   "MIN_DISCOUNT_PERCENT": 55,
   "MAX_ABS_PRICE_FOR_BRANDS": 150,
   "SCAN_INTERVAL_MIN": 120,
   "SCAN_INTERVAL_MAX": 300,
   "NOTIFICATION_COOLDOWN_HOURS": 24,
   "SEARCH_URLS": [
-    "https://www.amazon.it/s?i=computers&rh=n%3A425916031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?i=computers&rh=n%3A460090031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?i=computers&rh=n%3A473535031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?i=electronics&rh=n%3A473535031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?i=computers&rh=n%3A460100031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?rh=n%3A425916031&s=price-asc-rank&fs=true"
+    "https://www.amazon.it/s?k=notebook+portatili",
+    "https://www.amazon.it/s?k=smartphone+tablet",
+    "https://www.amazon.it/s?k=componenti+pc+hardware",
+    "https://www.amazon.it/s?k=scheda+video+gaming",
+    "https://www.amazon.it/s?k=monitor+pc+gaming",
+    "https://www.amazon.it/s?k=apple+ipad+macbook"
   ],
   "BRAND_WHITELIST": [
     "Apple", "Asus", "Lenovo", "Dell", "HP", "Samsung", "MSI", "Acer",
@@ -31,8 +31,8 @@
   ],
   "ENABLE_WAREHOUSE_DEALS": true,
   "WAREHOUSE_SEARCH_URLS": [
-    "https://www.amazon.it/s?i=computers&rh=n%3A425916031%2Cp_n_condition-type%3A12319843031&s=price-asc-rank&fs=true",
-    "https://www.amazon.it/s?i=electronics&rh=n%3A473535031%2Cp_n_condition-type%3A12319843031&s=price-asc-rank&fs=true"
+    "https://www.amazon.it/s?k=amazon+seconda+mano+informatica",
+    "https://www.amazon.it/s?k=amazon+seconda+mano+elettronica"
   ],
   "MIN_DISCOUNT_PERCENT_WAREHOUSE": 40
 }
