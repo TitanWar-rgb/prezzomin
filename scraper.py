@@ -36,7 +36,8 @@ _USER_AGENTS = [
 ]
 
 # --- Evolution 1: Resource Blocking ---
-BLOCKED_RESOURCE_TYPES = {"image", "media", "font", "stylesheet"}
+# Non blocchiamo 'stylesheet': Amazon verifica il layout CSS per identificare i bot
+BLOCKED_RESOURCE_TYPES = {"image", "media", "font"}
 BLOCKED_URL_PATTERNS = [
     "googlesyndication", "doubleclick", "google-analytics", "googletagmanager",
     "facebook", "amazon-adsystem", "criteo", "hotjar", "cloudfront.net/images",
@@ -107,6 +108,7 @@ class AmazonScraper:
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._consecutive_blocks: int = 0
+        self._warmed_up: bool = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -166,11 +168,20 @@ class AmazonScraper:
             locale="it-IT",
             timezone_id="Europe/Rome",
             extra_http_headers={
-                "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                "Sec-Ch-Ua-Mobile": "?0",
+                "Sec-Ch-Ua-Platform": '"Windows"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1",
             },
         )
 
-        # Disabilita il flag navigator.webdriver
+        # Disabilita il flag navigator.webdriver e spoof proprietà del browser
         await self._context.add_init_script(
             """
             Object.defineProperty(navigator, 'webdriver', {
@@ -178,6 +189,12 @@ class AmazonScraper:
             });
             Object.defineProperty(navigator, 'plugins', {
                 get: () => [1, 2, 3, 4, 5],
+            });
+            Object.defineProperty(navigator, 'platform', {
+                get: () => 'Win32',
+            });
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['it-IT', 'it', 'en-US', 'en'],
             });
             window.chrome = { runtime: {} };
             """
@@ -195,8 +212,37 @@ class AmazonScraper:
             except Exception:
                 pass
             self._context = None
+        self._warmed_up = False
         await self._create_context()
         logger.info("Context ruotato dopo CAPTCHA")
+
+    async def _warmup_session(self) -> None:
+        """Visita la homepage di Amazon per ottenere i cookie di sessione reali."""
+        if not self._context or self._warmed_up:
+            return
+        page: Page | None = None
+        try:
+            logger.info("Inizializzazione sessione Amazon (ottenimento cookie)...")
+            page = await self._context.new_page()
+            await page.route("**/*", _block_resources)
+            await page.goto("https://www.amazon.it/", wait_until="domcontentloaded", timeout=20_000)
+            cookie_btn = await page.query_selector("#sp-cc-accept, input[name='acceptCookie']")
+            if cookie_btn:
+                try:
+                    await cookie_btn.click()
+                    await asyncio.sleep(1)
+                except Exception:
+                    pass
+            self._warmed_up = True
+            logger.info("Sessione Amazon inizializzata con successo")
+        except Exception as exc:
+            logger.warning("Warmup sessione fallito (proseguo comunque): %s", exc)
+        finally:
+            if page:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
 
     async def _handle_captcha(self, url: str) -> None:
         """Gestisce la pausa e rotazione context dopo un CAPTCHA.
@@ -259,11 +305,22 @@ class AmazonScraper:
             logger.debug("Navigazione: %s", url[:120])
             await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
 
-            # Rileva CAPTCHA
-            captcha = await page.query_selector("#captchacharacters")
-            page_text = await page.text_content("body") or ""
-            if captcha or "inserisci i caratteri" in page_text.lower():
-                logger.warning("CAPTCHA rilevato — pagina saltata: %s", url[:80])
+            # Rileva CAPTCHA e Robot Check (in italiano e in inglese)
+            title = (await page.title()) or ""
+            page_text = (await page.text_content("body")) or ""
+            page_lower = (title + " " + page_text).lower()
+
+            is_bot_check = (
+                await page.query_selector("#captchacharacters") is not None
+                or await page.query_selector("form[action*='validateCaptcha']") is not None
+                or "robot check" in page_lower
+                or "inserisci i caratteri" in page_lower
+                or "characters you see" in page_lower
+                or "automated access" in page_lower
+                or "something went wrong" in page_lower
+            )
+            if is_bot_check:
+                logger.warning("Robot Check / CAPTCHA rilevato ('%s') — pagina saltata: %s", title, url[:80])
                 await page.close()
                 await self._handle_captcha(url)
                 return []
@@ -274,10 +331,14 @@ class AmazonScraper:
             # Attendi il caricamento dei risultati
             try:
                 await page.wait_for_selector(
-                    "div[data-asin]", timeout=10_000
+                    "div[data-asin]", timeout=15_000
                 )
             except PlaywrightTimeout:
-                logger.warning("Nessun risultato trovato entro il timeout: %s", url[:80])
+                current_title = await page.title()
+                logger.warning(
+                    "Nessun risultato trovato entro il timeout (Titolo pagina: '%s'): %s",
+                    current_title, url[:80],
+                )
                 return []
 
             # Scroll umano: scendi a step casuali per caricare il lazy-load
@@ -334,6 +395,9 @@ class AmazonScraper:
             warehouse_urls = self._config.get("WAREHOUSE_SEARCH_URLS", [])
             all_urls.extend((u, True) for u in warehouse_urls)
             logger.info("Warehouse Deals abilitati: %d URL extra", len(warehouse_urls))
+
+        # Inizializza cookie di sessione reali se non ancora fatto
+        await self._warmup_session()
 
         for i, (url, is_wh) in enumerate(all_urls):
             try:
