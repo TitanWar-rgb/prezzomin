@@ -127,10 +127,14 @@ def send_telegram_alert(
         discount_display = discount
 
     # Costruisci sezione prezzi
+    category_name = product.get("category_name")
+    cat_line = f"🏷️ Reparto: <b>{_escape_html(category_name)}</b>\n" if category_name else ""
+
     lines: list[str] = [
         f"{header}\n",
         f"<b>{_escape_html(title)}</b>\n",
-        f"📦 Condizione: {condition}\n",
+        cat_line,
+        f"📦 Condizione: {condition}",
         f"💰 Prezzo Amazon: <b>€{current:.2f}</b>",
     ]
 

@@ -1,0 +1,23 @@
+{
+  "CATEGORY_NAME": "Amazon Seconda Mano: Telefonia ed Elettronica",
+  "MIN_DISCOUNT_PERCENT": 30,
+  "MIN_DISCOUNT_PERCENT_WAREHOUSE": 25,
+  "MAX_ABS_PRICE_FOR_BRANDS": 80,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=amazon+seconda+mano+smartphone",
+    "https://www.amazon.it/s?k=amazon+seconda+mano+tablet",
+    "https://www.amazon.it/s?k=amazon+seconda+mano+elettronica"
+  ],
+  "BRAND_WHITELIST": [
+    "Apple", "Samsung", "Google", "Sony", "Xiaomi", "Garmin", "Bose", "Sennheiser", "OnePlus"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "cover", "pellicola", "cavo", "ricambio", "manuale",
+    "supporto", "vetro temperato", "adattatore", "laccetto"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": true,
+  "WAREHOUSE_SEARCH_URLS": []
+}

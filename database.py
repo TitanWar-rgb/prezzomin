@@ -4,6 +4,7 @@ Usa SQLite per memorizzare gli ASIN già notificati ed evitare duplicati
 entro una finestra temporale configurabile.
 """
 
+import os
 import sqlite3
 import logging
 from datetime import datetime, timedelta, timezone
@@ -13,13 +14,19 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent / "prezzomin.db"
+
+def get_db_path() -> Path:
+    """Restituisce il percorso del database SQLite per il worker corrente."""
+    db_name = os.environ.get("DB_NAME", "prezzomin.db").strip()
+    path = Path(__file__).parent / db_name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 @contextmanager
 def _connection() -> Generator[sqlite3.Connection, None, None]:
     """Context manager che apre e chiude una connessione SQLite."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(get_db_path()))
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -29,6 +36,7 @@ def _connection() -> Generator[sqlite3.Connection, None, None]:
 
 def init_db() -> None:
     """Crea la tabella notified_asins se non esiste."""
+    path = get_db_path()
     with _connection() as conn:
         conn.execute(
             """
@@ -43,7 +51,7 @@ def init_db() -> None:
             """
         )
         conn.commit()
-    logger.info("Database inizializzato: %s", DB_PATH)
+    logger.info("Database inizializzato: %s", path)
 
 
 def is_recently_notified(asin: str, hours: int = 24) -> bool:

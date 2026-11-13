@@ -1,0 +1,22 @@
+{
+  "CATEGORY_NAME": "Notebook e Portatili",
+  "MIN_DISCOUNT_PERCENT": 40,
+  "MAX_ABS_PRICE_FOR_BRANDS": 150,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=notebook+portatili",
+    "https://www.amazon.it/s?k=macbook+apple",
+    "https://www.amazon.it/s?k=ultrabook+pc"
+  ],
+  "BRAND_WHITELIST": [
+    "Apple", "Asus", "Lenovo", "Dell", "HP", "Acer", "MSI", "Samsung", "Microsoft", "Huawei"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "cover", "pellicola", "cavo", "ricambio", "manuale",
+    "supporto", "staffa", "adattatore", "prolunga", "adesivo", "sticker",
+    "borsa", "zaino", "tracolla"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

@@ -1,0 +1,23 @@
+{
+  "CATEGORY_NAME": "Amazon Seconda Mano: Informatica e PC",
+  "MIN_DISCOUNT_PERCENT": 30,
+  "MIN_DISCOUNT_PERCENT_WAREHOUSE": 25,
+  "MAX_ABS_PRICE_FOR_BRANDS": 100,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=amazon+seconda+mano+informatica",
+    "https://www.amazon.it/s?k=amazon+seconda+mano+notebook",
+    "https://www.amazon.it/s?k=amazon+seconda+mano+componenti"
+  ],
+  "BRAND_WHITELIST": [
+    "Apple", "Asus", "HP", "Lenovo", "MSI", "Dell", "Acer", "Samsung", "Corsair", "Logitech", "Gigabyte"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "cover", "pellicola", "cavo", "ricambio", "manuale",
+    "supporto", "staffa", "adattatore", "prolunga", "adesivo", "sticker"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": true,
+  "WAREHOUSE_SEARCH_URLS": []
+}

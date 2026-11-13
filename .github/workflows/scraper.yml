@@ -23,6 +23,21 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        category:
+          - notebook
+          - hardware_pc
+          - smartphones
+          - warehouse_tech
+          - warehouse_mobile
+          - monitors_tv
+          - gaming_periferiche
+          - storage_network
+          - audio_wearable
+          - smart_home
 
     steps:
       - name: Scarica il codice del repository
@@ -43,10 +58,7 @@ jobs:
         run: |
           playwright install --with-deps chromium
 
-      # Amazon blocca i range IP di Azure (AS8075) con la pagina 503 "Ci dispiace".
-      # Cloudflare WARP (gratuito, client ufficiale) fa uscire il traffico del
-      # browser dagli IP consumer di Cloudflare. Modalità proxy: solo Playwright
-      # passa da WARP; Telegram e git push restano sulla rete diretta.
+      # Cloudflare WARP SOCKS5 per mascherare l'IP di Azure ed evitare blocchi
       - name: Avvia Cloudflare WARP (proxy SOCKS5 locale)
         id: warp
         continue-on-error: true
@@ -70,33 +82,24 @@ jobs:
           echo "::warning::WARP non connesso, proseguo con IP diretto"
           exit 1
 
-      - name: Diagnostica raggiungibilità Amazon.it
-        continue-on-error: true
-        run: |
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
-          echo "IP diretto (Azure): $(curl -s --max-time 10 https://www.cloudflare.com/cdn-cgi/trace | grep '^ip=')"
-          echo "amazon.it diretto -> HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -A "$UA" https://www.amazon.it/)"
-          if [ -n "${PROXY_URL:-}" ]; then
-            echo "IP via WARP: $(curl -s --max-time 10 -x socks5h://127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace | grep -E '^(ip|warp)=' | tr '\n' ' ')"
-            echo "amazon.it via WARP -> HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -A "$UA" -x socks5h://127.0.0.1:40000 https://www.amazon.it/)"
-          fi
-
-      - name: Esegui sessione continua di monitoraggio (27 minuti no-stop)
+      - name: Esegui sessione di monitoraggio (${{ matrix.category }} - 27 minuti)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CATEGORY: ${{ matrix.category }}
           RUN_MINUTES: 27
-          # Sui run schedulati inputs è vuoto, quindi resta 'false'
           SEND_STARTUP_MSG: ${{ inputs.test_telegram && 'true' || 'false' }}
         run: |
           python main.py
 
-      - name: Salva database storico (Anti-duplicati)
+      - name: Salva database storico (${{ matrix.category }})
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add prezzomin.db
-          git commit -m "Aggiorna storico ASIN notificati [skip ci]" || echo "Nessun nuovo prodotto da salvare"
-          # Se nel frattempo main è avanzato (es. push di codice), riallinea prima di pushare
-          git pull --rebase --autostash origin main
-          git push
+          git add db/worker_${{ matrix.category }}.db || echo "Nessun db da aggiungere"
+          git commit -m "Aggiorna storico ASIN ${{ matrix.category }} [skip ci]" || echo "Nessun nuovo prodotto da salvare"
+          # Loop di rebase per gestire i salvataggi concorrenti dei 10 worker
+          for attempt in $(seq 1 10); do
+            git pull --rebase --autostash origin main && git push && exit 0 || sleep $((RANDOM % 10 + 3))
+          done
+          echo "Impossibile pushare il database dopo 10 tentativi"

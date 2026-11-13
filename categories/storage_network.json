@@ -1,0 +1,22 @@
+{
+  "CATEGORY_NAME": "Storage e Networking",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 50,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=ssd+nvme+m2+pcie",
+    "https://www.amazon.it/s?k=hard+disk+esterno+4tb",
+    "https://www.amazon.it/s?k=router+wifi+6+gaming",
+    "https://www.amazon.it/s?k=nas+synology+qnap"
+  ],
+  "BRAND_WHITELIST": [
+    "Samsung", "Crucial", "Western Digital", "Kingston", "Seagate", "SanDisk",
+    "AVM", "Fritz", "ASUS", "Netgear", "Synology", "Qnap"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "case", "cavo", "adattatore", "prolunga", "manuale", "vite", "viti"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

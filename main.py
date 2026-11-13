@@ -48,11 +48,9 @@ def _setup_logging() -> None:
 def _load_config() -> dict[str, Any]:
     """Carica e valida il file di configurazione JSON.
 
-    Returns:
-        Dizionario di configurazione.
-
-    Raises:
-        SystemExit: Se il file non esiste o non è valido.
+    Usa config.json come base e, se è specificata la variabile CATEGORY,
+    applica le impostazioni specializzate da categories/<category>.json,
+    isolando lo storico in db/worker_<category>.db per evitare conflitti.
     """
     if not CONFIG_PATH.exists():
         logging.error("File di configurazione non trovato: %s", CONFIG_PATH)
@@ -61,7 +59,19 @@ def _load_config() -> dict[str, Any]:
     with open(CONFIG_PATH, encoding="utf-8") as fh:
         config = json.load(fh)
 
-    # Sovrascrivi con variabili d'ambiente (es. Secrets di Hugging Face / Docker) se presenti
+    category = os.environ.get("CATEGORY", "").strip().lower()
+    if category:
+        cat_file = Path(__file__).parent / "categories" / f"{category}.json"
+        if cat_file.exists():
+            with open(cat_file, encoding="utf-8") as fh:
+                cat_config = json.load(fh)
+            config.update(cat_config)
+            logging.info("Caricamento configurazione categoria '%s': %s", category, cat_file)
+            os.environ.setdefault("DB_NAME", f"db/worker_{category}.db")
+        else:
+            logging.warning("File categoria '%s' non trovato in categories/, uso config.json", category)
+
+    # Sovrascrivi con variabili d'ambiente (es. Secrets di GitHub Actions) se presenti
     env_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     env_chat = os.environ.get("TELEGRAM_CHAT_ID")
     if env_token:
@@ -122,7 +132,7 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
 
     Returns:
         "PRICE_ERROR" — price is >=45% below Idealo best, or branded product under MAX_ABS_PRICE_FOR_BRANDS
-        "SUPER_DEAL" — price is >=25% below Idealo best (but <45%)
+        "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount
         None — does not qualify for any alert
     """
     price_validated = product.get("price_validated", False)
@@ -131,14 +141,9 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
     current_price = product.get("current_price", 0.0)
     is_warehouse = product.get("is_warehouse", False)
     max_price = config.get("MAX_ABS_PRICE_FOR_BRANDS", 150)
+    min_discount = config.get("MIN_DISCOUNT_PERCENT", 45)
 
-    # Soglia di sconto per il fallback Amazon-only
-    if is_warehouse:
-        min_discount = config.get("MIN_DISCOUNT_PERCENT_WAREHOUSE", 40)
-    else:
-        min_discount = config.get("MIN_DISCOUNT_PERCENT", 55)
-
-    # Override: branded product sotto la soglia di prezzo assoluto
+    # Override: branded product sotto la soglia di prezzo assoluto (es. laptop a meno di 150€)
     if current_price > 0 and current_price < max_price:
         return "PRICE_ERROR"
 
@@ -150,11 +155,17 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
             return "SUPER_DEAL"
         return None
     else:
-        # Fallback allo sconto Amazon
-        if discount >= min_discount:
-            return "PRICE_ERROR"
-        if discount >= min_discount * 0.6:
-            return "SUPER_DEAL"
+        # Fallback allo sconto interno Amazon
+        if is_warehouse:
+            if discount >= config.get("MIN_DISCOUNT_PERCENT_WAREHOUSE", 35):
+                return "PRICE_ERROR"
+            if discount >= 20:
+                return "SUPER_DEAL"
+        else:
+            if discount >= min_discount:
+                return "PRICE_ERROR"
+            if discount >= 25:
+                return "SUPER_DEAL"
         return None
 
 
@@ -222,6 +233,7 @@ async def _main_loop(config: dict[str, Any]) -> None:
 
                 alerts_sent = 0
                 for product in products:
+                    product["category_name"] = config.get("CATEGORY_NAME", "Generale")
                     # Filtri di base (brand, blacklist, Prime)
                     if not _passes_basic_filters(product, config):
                         continue

@@ -1,0 +1,21 @@
+{
+  "CATEGORY_NAME": "Smartphone e Tablet",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 120,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=smartphone+5g",
+    "https://www.amazon.it/s?k=iphone+apple",
+    "https://www.amazon.it/s?k=tablet+ipad+android"
+  ],
+  "BRAND_WHITELIST": [
+    "Apple", "Samsung", "Google", "Xiaomi", "OnePlus", "Nothing", "Motorola", "Honor", "Sony", "Huawei"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "custodia", "cover", "pellicola", "vetro temperato", "cavo", "caricatore",
+    "ricambio", "manuale", "supporto auto", "adattatore", "adesivo", "laccetto"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

@@ -1,0 +1,21 @@
+{
+  "CATEGORY_NAME": "Periferiche Gaming",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 40,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=mouse+gaming+wireless",
+    "https://www.amazon.it/s?k=tastiera+meccanica+gaming",
+    "https://www.amazon.it/s?k=cuffie+gaming+pc",
+    "https://www.amazon.it/s?k=volante+gaming+pedaliera"
+  ],
+  "BRAND_WHITELIST": [
+    "Logitech", "Razer", "Corsair", "SteelSeries", "HyperX", "Thrustmaster", "ASUS", "EPOS", "Sony"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "cavo", "tappetino", "pad", "adesivo", "manuale", "ricambio", "switch", "keycap", "panno"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

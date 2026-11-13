@@ -1,0 +1,20 @@
+{
+  "CATEGORY_NAME": "Monitor e Smart TV",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 100,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=monitor+pc+gaming+144hz",
+    "https://www.amazon.it/s?k=smart+tv+4k+oled",
+    "https://www.amazon.it/s?k=monitor+4k+ips"
+  ],
+  "BRAND_WHITELIST": [
+    "LG", "Samsung", "Sony", "ASUS", "BenQ", "MSI", "Philips", "TCL", "Hisense", "Acer", "Dell", "Xiaomi"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "cavo", "telecomando", "staffa", "supporto parete", "pellicola", "adattatore", "manuale", "panno"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

@@ -1,0 +1,20 @@
+{
+  "CATEGORY_NAME": "Smart Home e Domotica",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 80,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=robot+aspirapolvere+lavapavimenti",
+    "https://www.amazon.it/s?k=telecamera+sicurezza+wifi+esterno",
+    "https://www.amazon.it/s?k=domotica+luci+smart+termostato"
+  ],
+  "BRAND_WHITELIST": [
+    "Roborock", "Dreame", "iRobot", "Ecovacs", "Dyson", "Philips Hue", "Eufy", "Ring", "Netatmo", "Tado", "TP-Link"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "panno", "spazzola", "filtro", "ricambio", "sacchetto", "supporto", "manuale", "adesivo", "cavo"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

@@ -1,0 +1,23 @@
+{
+  "CATEGORY_NAME": "Hardware e Componenti PC",
+  "MIN_DISCOUNT_PERCENT": 35,
+  "MAX_ABS_PRICE_FOR_BRANDS": 100,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "SEARCH_URLS": [
+    "https://www.amazon.it/s?k=scheda+video+gaming+rtx",
+    "https://www.amazon.it/s?k=processore+cpu+ryzen+intel",
+    "https://www.amazon.it/s?k=scheda+madre+gaming",
+    "https://www.amazon.it/s?k=alimentatore+pc+modulare"
+  ],
+  "BRAND_WHITELIST": [
+    "Nvidia", "AMD", "Intel", "Asus", "MSI", "Gigabyte", "Sapphire",
+    "Corsair", "NZXT", "Noctua", "be quiet!", "Cooler Master", "EVGA", "Seasonic"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "cavo", "prolunga", "adesivo", "pasta termica", "adattatore", "supporto",
+    "staffa", "vite", "viti", "panno", "manuale"
+  ],
+  "ENABLE_WAREHOUSE_DEALS": false
+}

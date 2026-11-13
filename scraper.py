@@ -507,24 +507,21 @@ class AmazonScraper:
             if discount_percent < 0:
                 discount_percent = 0.0
 
-        # Badge Prime
+        # Riconoscimento Prime e Spedizione Amazon / Gratuita
+        card_text_lower = (await card.inner_text() or "").lower()
         prime_el = await card.query_selector(
-            ".s-prime, i.a-icon-prime, [aria-label*='Prime']"
+            ".s-prime, i.a-icon-prime, [aria-label*='Prime'], [aria-label*='prime'], "
+            "span[data-component-type='s-prime-eligible']"
         )
-        is_prime = prime_el is not None
+        is_prime = prime_el is not None or "prime" in card_text_lower
 
-        # Fulfillment Amazon
-        is_fulfilled = False
-        delivery_els = await card.query_selector_all(
-            ".a-row.a-size-base.a-color-secondary span, "
-            "[data-cy='delivery-recipe'] span, "
-            ".s-align-children-center span"
+        # Considera affidabile se spedito da Amazon, con logo Prime o con consegna/spedizione gratuita tracciata
+        is_fulfilled = (
+            is_prime
+            or "consegna gratuita" in card_text_lower
+            or "spedizione gratuita" in card_text_lower
+            or "amazon" in card_text_lower
         )
-        for el in delivery_els:
-            text = (await el.inner_text() or "").lower()
-            if "amazon" in text:
-                is_fulfilled = True
-                break
 
         # Evolution 2: Condizione prodotto
         condition = await self._extract_condition(card)
