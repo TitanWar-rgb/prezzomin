@@ -1,0 +1,21 @@
+{
+  "CATEGORY_NAME": "Subito.it Tech: Regali & Semi-Nuovi",
+  "STORE": "subito",
+  "CATEGORIES": [10, 11, 12, 13],
+  "SEARCH_QUERIES": [
+    "iphone",
+    "playstation",
+    "samsung galaxy",
+    "notebook",
+    "nintendo switch"
+  ],
+  "MIN_DISCOUNT_PERCENT": 30,
+  "MAX_ABS_PRICE_FOR_BRANDS": 150,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "BLACKLIST_KEYWORDS": [
+    "cavo", "prolunga", "adesivo", "cover", "custodia", "pellicola",
+    "vetro temperato", "adattatore", "supporto", "staffa", "vite", "scatola vuota"
+  ]
+}

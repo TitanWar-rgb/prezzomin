@@ -23,6 +23,7 @@ from ebay_scraper import EbayScraper
 from notifier import send_telegram_alert, send_startup_message
 from price_validator import PriceValidator
 from scraper import AmazonScraper
+from subito_scraper import SubitoScraper
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 LOG_PATH = Path(__file__).parent / "prezzomin.log"
@@ -92,7 +93,12 @@ def _load_config() -> dict[str, Any]:
 
     # Validazione minima
     required = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
-    if not (config.get("SEARCH_URLS") or config.get("SEARCH_QUERIES")):
+    is_subito = (
+        store == "subito"
+        or category.startswith("subito")
+        or config.get("CATEGORY_NAME", "").lower().startswith("subito")
+    )
+    if not is_subito and not (config.get("SEARCH_URLS") or config.get("SEARCH_QUERIES")):
         logging.error("Nessun SEARCH_URLS o SEARCH_QUERIES specificato nella configurazione!")
         sys.exit(1)
 
@@ -130,6 +136,15 @@ def _passes_basic_filters(product: dict[str, Any], config: dict[str, Any]) -> bo
     whitelist = config.get("BRAND_WHITELIST", [])
     blacklist = config.get("BLACKLIST_KEYWORDS", [])
 
+    # Filtri specifici per prodotti Subito.it (disabilita Prime, consente prezzo 0 in regalo)
+    if product.get("store") == "subito":
+        if blacklist and _matches_blacklist(title, blacklist):
+            return False
+        is_free = product.get("is_free") or product.get("current_price", 0.0) == 0
+        if not is_free and whitelist and not _matches_brand(title, whitelist):
+            return False
+        return True
+
     # Filtri specifici per prodotti eBay
     if product.get("store") == "ebay":
         seller_whitelist = config.get("SELLER_WHITELIST", [])
@@ -163,10 +178,18 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
     """Classify the alert level for a product.
 
     Returns:
-        "PRICE_ERROR" — price is >=45% below Idealo best, branded product under MAX_ABS_PRICE, or high coupon combo
-        "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount
+        "PRICE_ERROR" — price is >=45% below Idealo best, branded product under MAX_ABS_PRICE, free item, or high coupon combo
+        "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount, or like-new Subito deal
         None — does not qualify for any alert
     """
+    # Oggetti in regalo o con prezzo 0 (es. Subito regali tech) -> sempre PRICE_ERROR
+    if product.get("is_free") or product.get("current_price", 0.0) == 0:
+        return "PRICE_ERROR"
+
+    # Classificazione specifica per Subito.it (annunci tech semi-nuovi con spedizione)
+    if product.get("store") == "subito":
+        return "SUPER_DEAL"
+
     # Classificazione specifica per eBay Italia
     if product.get("store") == "ebay":
         total_discount = product.get("total_discount_percent", product.get("discount_percent", 0.0))
@@ -247,13 +270,21 @@ async def _main_loop(config: dict[str, Any]) -> None:
 
     store = config.get("STORE", "").lower()
     category = os.environ.get("CATEGORY", "").strip().lower()
+    is_subito = (
+        store == "subito"
+        or category.startswith("subito")
+        or config.get("CATEGORY_NAME", "").lower().startswith("subito")
+    )
     is_ebay = (
         store == "ebay"
         or category.startswith("ebay")
         or config.get("CATEGORY_NAME", "").lower().startswith("ebay")
     )
 
-    if is_ebay:
+    if is_subito:
+        logger.info("Modulo store: Subito.it (SubitoScraper)")
+        scraper = SubitoScraper(config)
+    elif is_ebay:
         logger.info("Modulo store: eBay Italia (EbayScraper)")
         scraper = EbayScraper(config)
     else:
@@ -321,7 +352,7 @@ async def _main_loop(config: dict[str, Any]) -> None:
                         continue
 
                     # Validazione prezzo Idealo (per Amazon)
-                    if validator and product.get("store") != "ebay":
+                    if validator and product.get("store") not in ("ebay", "subito"):
                         try:
                             product = await validator.validate_price(product)
                         except Exception as exc:

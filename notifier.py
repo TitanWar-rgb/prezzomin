@@ -93,9 +93,51 @@ def format_alert_message(product: dict[str, Any]) -> str:
     category_name = product.get("category_name")
 
     has_coupon = product.get("has_coupon", False)
+    has_cart_promo = product.get("has_cart_promo", False)
+    cart_promo_discount = product.get("cart_promo_discount", 0.0)
     final_price = product.get("final_price", current)
     total_discount_percent = product.get("total_discount_percent", discount)
     total_savings = product.get("total_savings", 0.0)
+
+    # Gestione specifica per Subito.it
+    if store == "subito":
+        item_id = product.get("item_id") or asin
+        is_free = product.get("is_free", False) or condition == "In regalo" or current == 0.0
+        location = product.get("location", "Italia")
+        link = product.get("url") or "https://www.subito.it"
+
+        if is_free:
+            header = "🎁 OGGETTO IN REGALO (0 €) SU SUBITO 🎁"
+        else:
+            header = "💎 OCCASIONE TECH SEMI-NUOVO SU SUBITO 💎"
+
+        lines: list[str] = [
+            f"{header}\n",
+            f"<b>{_escape_html(title)}</b>\n",
+        ]
+        if category_name:
+            lines.append(f"🏷️ Reparto: <b>{_escape_html(category_name)}</b>")
+
+        if is_free:
+            lines.append("💰 Prezzo: <b>GRATIS (0 €)</b>")
+            lines.append("📦 Condizione: In regalo")
+        else:
+            lines.append(f"💰 Prezzo: <b>€{current:.2f}</b>")
+            lines.append(f"📦 Condizione: {condition}")
+
+        lines.append(f"📍 Località: {_escape_html(location)}")
+        lines.append("📦 Spedizione TuttoSubito: Disponibile")
+
+        if has_cart_promo:
+            lines.append(
+                f"🛒 Promozione Carrello: <b>-{cart_promo_discount:.2f}€</b> di sconto immediato al check-out!"
+            )
+
+        lines.append("")
+        lines.append(f'🔗 <a href="{link}">Vai all\'annuncio su Subito</a>')
+        lines.append("")
+        lines.append(f"<code>{item_id}</code>")
+        return "\n".join(lines)
 
     # Gestione specifica per eBay Italia
     if store == "ebay":
@@ -208,6 +250,11 @@ def format_alert_message(product: dict[str, Any]) -> str:
                 f"🔥 Sconto Amazon: <b>-{discount:.0f}% (€{savings:.2f})</b>"
             )
 
+    if has_cart_promo:
+        lines.append(
+            f"🛒 Promozione Carrello: <b>-{cart_promo_discount:.2f}€</b> di sconto immediato al check-out!"
+        )
+
     lines.append("")
     lines.append(prime_label)
     if alert_level == "PRICE_ERROR" or (has_coupon and total_discount_percent >= 50):
@@ -248,10 +295,16 @@ def send_telegram_alert(
 
     text = format_alert_message(product)
 
+    store_label = (
+        "Subito Item"
+        if product.get("store") == "subito"
+        else ("eBay Item" if product.get("store") == "ebay" else "ASIN")
+    )
+
     logger.info(
         "Invio alert [%s] per %s %s – €%.2f (-%0.f%%)%s",
         alert_level,
-        "eBay Item" if product.get("store") == "ebay" else "ASIN",
+        store_label,
         asin,
         final_price if has_coupon else current,
         total_discount,

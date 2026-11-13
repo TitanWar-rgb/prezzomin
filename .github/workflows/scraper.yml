@@ -39,6 +39,7 @@ jobs:
           - audio_wearable
           - smart_home
           - ebay_tech
+          - subito_deals
 
     steps:
       - name: Scarica il codice del repository

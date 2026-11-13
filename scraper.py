@@ -146,6 +146,77 @@ def parse_coupon(
     return None
 
 
+def parse_cart_promo(text: str) -> tuple[bool, float, str]:
+    """Riconosce le promozioni con sconto a carrello (es. bundle Samsung, sconti check-out).
+
+    Args:
+        text: Testo estratto dalla card o dettagli prodotto.
+
+    Returns:
+        Tupla (has_cart_promo, cart_promo_discount, cart_promo_desc).
+    """
+    if not text:
+        return False, 0.0, ""
+
+    text_clean = text.replace("\xa0", " ").strip()
+    text_lower = text_clean.lower()
+
+    # Pattern 1: "risparmia XX€ al check-out" o "risparmia € XX al check-out"
+    m_checkout = re.search(
+        r"risparmia\s+(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)\s+al check-out",
+        text_lower,
+    )
+    if m_checkout:
+        raw_val = m_checkout.group(1) or m_checkout.group(2)
+        val = float(raw_val.replace(",", "."))
+        desc = m_checkout.group(0).strip()
+        return True, round(val, 2), desc
+
+    # Pattern 2: "sconto immediato direttamente a carrello"
+    if "sconto immediato direttamente a carrello" in text_lower:
+        # Cerca valore dopo
+        m_after = re.search(
+            r"sconto immediato direttamente a carrello[^\d€\n]{0,25}(?:di\s*)?(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)",
+            text_lower,
+        )
+        if m_after:
+            raw_val = m_after.group(1) or m_after.group(2)
+            val = float(raw_val.replace(",", "."))
+            return True, round(val, 2), "Sconto immediato direttamente a carrello"
+
+        # Cerca valore prima
+        m_before = re.search(
+            r"(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)[^\n.]{0,30}sconto immediato direttamente a carrello",
+            text_lower,
+        )
+        if m_before:
+            raw_val = m_before.group(1) or m_before.group(2)
+            val = float(raw_val.replace(",", "."))
+            return True, round(val, 2), "Sconto immediato direttamente a carrello"
+
+        # Cerca eventuale importo vicino
+        m_near = re.search(r"(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)", text_lower)
+        if m_near:
+            raw_val = m_near.group(1) or m_near.group(2)
+            val = float(raw_val.replace(",", "."))
+            return True, round(val, 2), "Sconto immediato direttamente a carrello"
+
+        return True, 0.0, "Sconto immediato direttamente a carrello"
+
+    # Pattern 3: Generico "risparmia XX€ al check-out" con separatori vari
+    m_gen = re.search(
+        r"risparmia[^\d€\n]{0,20}(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)[^\n.]{0,25}al check-out",
+        text_lower,
+    )
+    if m_gen:
+        raw_val = m_gen.group(1) or m_gen.group(2)
+        val = float(raw_val.replace(",", "."))
+        desc = m_gen.group(0).strip()
+        return True, round(val, 2), desc
+
+    return False, 0.0, ""
+
+
 def calculate_coupon_metrics(
     current_price: float,
     original_price: float,
@@ -668,6 +739,25 @@ class AmazonScraper:
             discount_percent,
         )
 
+        # Riconoscimento Promozioni a carrello (es. bundle Samsung, sconti check-out)
+        card_text_raw = await card.inner_text() or ""
+        has_cart_promo, cart_promo_discount, cart_promo_desc = parse_cart_promo(card_text_raw)
+
+        final_price = coupon_data["final_price"]
+        total_savings = coupon_data["total_savings"]
+        total_discount_percent = coupon_data["total_discount_percent"]
+
+        if has_cart_promo and cart_promo_discount > 0:
+            final_price = round(max(0.0, final_price - cart_promo_discount), 2)
+            base_ref = (
+                original_price
+                if (original_price and original_price > 0)
+                else (current_price if (current_price and current_price > 0) else 0.0)
+            )
+            if base_ref > 0:
+                total_discount_percent = round(((base_ref - final_price) / base_ref) * 100.0, 1)
+                total_savings = round(base_ref - final_price, 2)
+
         return {
             "asin": asin.strip(),
             "title": title,
@@ -682,9 +772,12 @@ class AmazonScraper:
             "has_coupon": coupon_data["has_coupon"],
             "coupon_label": coupon_data["coupon_label"],
             "coupon_discount": coupon_data["coupon_discount"],
-            "final_price": coupon_data["final_price"],
-            "total_discount_percent": coupon_data["total_discount_percent"],
-            "total_savings": coupon_data["total_savings"],
+            "has_cart_promo": has_cart_promo,
+            "cart_promo_discount": cart_promo_discount,
+            "cart_promo_desc": cart_promo_desc,
+            "final_price": final_price,
+            "total_discount_percent": total_discount_percent,
+            "total_savings": total_savings,
         }
 
     async def _extract_coupon(
