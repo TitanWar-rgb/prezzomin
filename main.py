@@ -16,8 +16,10 @@ import signal
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 from database import init_db, is_recently_notified, mark_notified, cleanup_old_entries
+from ebay_scraper import EbayScraper
 from notifier import send_telegram_alert, send_startup_message
 from price_validator import PriceValidator
 from scraper import AmazonScraper
@@ -79,8 +81,21 @@ def _load_config() -> dict[str, Any]:
     if env_chat:
         config["TELEGRAM_CHAT_ID"] = env_chat
 
+    # Supporto categorie e query eBay
+    store = config.get("STORE", "").lower()
+    if store == "ebay" or category.startswith("ebay"):
+        if not config.get("SEARCH_URLS") and config.get("SEARCH_QUERIES"):
+            config["SEARCH_URLS"] = [
+                f"https://www.ebay.it/sch/i.html?_nkw={quote_plus(q)}&LH_BIN=1&_sop=15"
+                for q in config.get("SEARCH_QUERIES", [])
+            ]
+
     # Validazione minima
-    required = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "SEARCH_URLS"]
+    required = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    if not (config.get("SEARCH_URLS") or config.get("SEARCH_QUERIES")):
+        logging.error("Nessun SEARCH_URLS o SEARCH_QUERIES specificato nella configurazione!")
+        sys.exit(1)
+
     for key in required:
         if not config.get(key):
             logging.error("Chiave di configurazione mancante o vuota: %s", key)
@@ -102,7 +117,7 @@ def _matches_blacklist(title: str, blacklist: list[str]) -> bool:
 
 
 def _passes_basic_filters(product: dict[str, Any], config: dict[str, Any]) -> bool:
-    """Applica i filtri di base: brand, blacklist, Prime/fulfilled.
+    """Applica i filtri di base: brand, blacklist, Prime/fulfilled (Amazon) o seller whitelist (eBay).
 
     Args:
         product: Dizionario prodotto dallo scraper.
@@ -115,6 +130,23 @@ def _passes_basic_filters(product: dict[str, Any], config: dict[str, Any]) -> bo
     whitelist = config.get("BRAND_WHITELIST", [])
     blacklist = config.get("BLACKLIST_KEYWORDS", [])
 
+    # Filtri specifici per prodotti eBay
+    if product.get("store") == "ebay":
+        seller_whitelist = config.get("SELLER_WHITELIST", [])
+        if seller_whitelist:
+            seller = product.get("seller", "").lower()
+            if not any(w.lower() in seller for w in seller_whitelist):
+                return False
+
+        if blacklist and _matches_blacklist(title, blacklist):
+            return False
+
+        if whitelist and not _matches_brand(title, whitelist):
+            return False
+
+        return True
+
+    # Filtri Amazon standard
     if not _matches_brand(title, whitelist):
         return False
 
@@ -135,6 +167,19 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
         "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount
         None — does not qualify for any alert
     """
+    # Classificazione specifica per eBay Italia
+    if product.get("store") == "ebay":
+        total_discount = product.get("total_discount_percent", product.get("discount_percent", 0.0))
+        final_price = product.get("final_price", product.get("current_price", 0.0))
+        max_price = config.get("MAX_ABS_PRICE_FOR_BRANDS", 150)
+        min_discount = config.get("MIN_DISCOUNT_PERCENT", 20)
+
+        if total_discount >= 45 or (final_price < max_price and total_discount >= min_discount):
+            return "PRICE_ERROR"
+        if total_discount >= min_discount:
+            return "SUPER_DEAL"
+        return None
+
     # Valutazione convenienza Coupon & Doppi Sconti (Coupon Stacking)
     if product.get("has_coupon"):
         final_price = product.get("final_price", product.get("current_price", 0.0))
@@ -200,10 +245,24 @@ async def _main_loop(config: dict[str, Any]) -> None:
     interval_min = config.get("SCAN_INTERVAL_MIN", 120)
     interval_max = config.get("SCAN_INTERVAL_MAX", 300)
 
-    scraper = AmazonScraper(config)
+    store = config.get("STORE", "").lower()
+    category = os.environ.get("CATEGORY", "").strip().lower()
+    is_ebay = (
+        store == "ebay"
+        or category.startswith("ebay")
+        or config.get("CATEGORY_NAME", "").lower().startswith("ebay")
+    )
+
+    if is_ebay:
+        logger.info("Modulo store: eBay Italia (EbayScraper)")
+        scraper = EbayScraper(config)
+    else:
+        logger.info("Modulo store: Amazon Italia (AmazonScraper)")
+        scraper = AmazonScraper(config)
+
     await scraper.start()
 
-    # Crea il PriceValidator condividendo il browser context
+    # Crea il PriceValidator solo se è attivo un context browser
     context = scraper.get_context()
     validator = PriceValidator(context) if context else None
 
@@ -261,8 +320,8 @@ async def _main_loop(config: dict[str, Any]) -> None:
                         logger.debug("ASIN %s già notificato — skip", asin)
                         continue
 
-                    # Validazione prezzo Idealo
-                    if validator:
+                    # Validazione prezzo Idealo (per Amazon)
+                    if validator and product.get("store") != "ebay":
                         try:
                             product = await validator.validate_price(product)
                         except Exception as exc:

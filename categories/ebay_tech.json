@@ -1,0 +1,31 @@
+{
+  "CATEGORY_NAME": "eBay Tech & Elettronica",
+  "STORE": "ebay",
+  "MIN_DISCOUNT_PERCENT": 20,
+  "MAX_ABS_PRICE_FOR_BRANDS": 150,
+  "SCAN_INTERVAL_MIN": 90,
+  "SCAN_INTERVAL_MAX": 150,
+  "NOTIFICATION_COOLDOWN_HOURS": 24,
+  "COUPON_CODE": "TECH24",
+  "COUPON_PERCENT": 10,
+  "COUPON_MAX_DISCOUNT": 50,
+  "SEARCH_QUERIES": [
+    "notebook gaming",
+    "smartphone 5g",
+    "playstation 5 console",
+    "scheda video rtx",
+    "apple iphone",
+    "monitor gaming oled"
+  ],
+  "SELLER_WHITELIST": [
+    "monclick-italia",
+    "yeppon-shop",
+    "stayon_elettronica",
+    "redcoonit",
+    "eshopping-srl"
+  ],
+  "BLACKLIST_KEYWORDS": [
+    "cavo", "prolunga", "adesivo", "pasta termica", "cover", "pellicola",
+    "custodia", "vetro temperato", "adattatore", "supporto", "staffa", "vite"
+  ]
+}

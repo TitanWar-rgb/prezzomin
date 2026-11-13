@@ -79,27 +79,85 @@ def _send_message(
 def format_alert_message(product: dict[str, Any]) -> str:
     """Formatta il messaggio di alert HTML per Telegram.
 
-    Supporta alert PRICE_ERROR, SUPER_DEAL e combinazioni coupon stacking.
+    Supporta alert Amazon (PRICE_ERROR, SUPER_DEAL, coupon stacking)
+    e alert specifici eBay Italia con coupon e venditori affidabili.
     """
+    store = product.get("store", "amazon")
     alert_level = product.get("alert_level", "PRICE_ERROR")
-    asin = product.get("asin", "N/A")
+    asin = product.get("asin") or product.get("item_id", "N/A")
     title = product.get("title", "Titolo non disponibile")
     current = product.get("current_price", 0.0)
     original = product.get("original_price", 0.0)
     discount = product.get("discount_percent", 0.0)
-    is_prime = product.get("is_prime", False)
-    is_fulfilled = product.get("is_amazon_fulfilled", False)
     condition = product.get("condition", "Nuovo")
-    idealo_best = product.get("idealo_best_price")
-    real_discount = product.get("real_discount_percent", 0.0)
-    price_validated = product.get("price_validated", False)
+    category_name = product.get("category_name")
 
-    # Info coupon
     has_coupon = product.get("has_coupon", False)
-    coupon_label = product.get("coupon_label", "")
     final_price = product.get("final_price", current)
     total_discount_percent = product.get("total_discount_percent", discount)
     total_savings = product.get("total_savings", 0.0)
+
+    # Gestione specifica per eBay Italia
+    if store == "ebay":
+        item_id = product.get("item_id") or asin
+        seller = product.get("seller", "Venditore eBay")
+        seller_feedback = product.get("seller_feedback", "")
+        coupon_code = product.get("coupon_code", "")
+        coupon_percent = product.get("coupon_percent", 0.0)
+        shipping_cost = product.get("shipping_cost")
+        link = f"https://www.ebay.it/itm/{item_id}"
+
+        if has_coupon:
+            header = "💣 COMBO EBAY + CODICE SCONTO 💣"
+        else:
+            header = "🛍️ SUPER AFFARE EBAY 🛍️"
+
+        lines: list[str] = [
+            f"{header}\n",
+            f"<b>{_escape_html(title)}</b>\n",
+        ]
+        if category_name:
+            lines.append(f"🏷️ Reparto: <b>{_escape_html(category_name)}</b>")
+
+        feedback_fmt = f" ({_escape_html(seller_feedback)})" if seller_feedback else ""
+        lines.append(f"🏪 Venditore: <b>{_escape_html(seller)}</b>{feedback_fmt}")
+        lines.append(f"📦 Condizione: {condition}")
+
+        if has_coupon:
+            lines.append(f"🎟️ Codice sconto da inserire: <code>{coupon_code}</code> (-{coupon_percent:.0f}%)")
+            lines.append(f"💰 Prezzo al check-out: <b>€{final_price:.2f}</b>")
+            lines.append(f"Prezzo eBay di partenza: €{current:.2f}")
+            if original > 0:
+                lines.append(f"💸 Prezzo originale barrato: <s>€{original:.2f}</s>")
+            lines.append(f"🔥 Risparmio complessivo: <b>-{total_discount_percent:.0f}% (€{total_savings:.2f})</b>")
+        else:
+            lines.append(f"💰 Prezzo al check-out: <b>€{final_price:.2f}</b>")
+            if original > 0:
+                lines.append(f"💸 Prezzo originale barrato: <s>€{original:.2f}</s>")
+                lines.append(f"🔥 Risparmio complessivo: <b>-{total_discount_percent:.0f}% (€{total_savings:.2f})</b>")
+            elif total_discount_percent > 0:
+                lines.append(f"🔥 Sconto: <b>-{total_discount_percent:.0f}%</b>")
+
+        if shipping_cost is not None:
+            if isinstance(shipping_cost, (int, float)):
+                ship_label = "Gratis" if shipping_cost == 0 else f"€{shipping_cost:.2f}"
+            else:
+                ship_label = str(shipping_cost)
+            lines.append(f"🚚 Spedizione: {ship_label}")
+
+        lines.append("")
+        lines.append(f'🔗 <a href="{link}">Vai al prodotto</a>')
+        lines.append("")
+        lines.append(f"<code>{item_id}</code>")
+        return "\n".join(lines)
+
+    # Gestione Amazon
+    is_prime = product.get("is_prime", False)
+    is_fulfilled = product.get("is_amazon_fulfilled", False)
+    idealo_best = product.get("idealo_best_price")
+    real_discount = product.get("real_discount_percent", 0.0)
+    price_validated = product.get("price_validated", False)
+    coupon_label = product.get("coupon_label", "")
 
     link = f"https://www.amazon.it/dp/{asin}"
     prime_label = "✅ Prime" if is_prime else "❌ Non Prime"
@@ -114,7 +172,6 @@ def format_alert_message(product: dict[str, Any]) -> str:
     else:
         header = "🔥 SUPER AFFARE VERIFICATO 🔥"
 
-    category_name = product.get("category_name")
     lines: list[str] = [
         f"{header}\n",
         f"<b>{_escape_html(title)}</b>\n",
@@ -182,18 +239,19 @@ def send_telegram_alert(
         True se inviato con successo.
     """
     alert_level = product.get("alert_level", "PRICE_ERROR")
-    asin = product.get("asin", "N/A")
+    asin = product.get("item_id") or product.get("asin", "N/A")
     current = product.get("current_price", 0.0)
     has_coupon = product.get("has_coupon", False)
     final_price = product.get("final_price", current)
     total_discount = product.get("total_discount_percent", product.get("discount_percent", 0.0))
-    coupon_label = product.get("coupon_label", "")
+    coupon_label = product.get("coupon_label") or product.get("coupon_code", "")
 
     text = format_alert_message(product)
 
     logger.info(
-        "Invio alert [%s] per ASIN %s – €%.2f (-%0.f%%)%s",
+        "Invio alert [%s] per %s %s – €%.2f (-%0.f%%)%s",
         alert_level,
+        "eBay Item" if product.get("store") == "ebay" else "ASIN",
         asin,
         final_price if has_coupon else current,
         total_discount,
