@@ -131,7 +131,7 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
     """Classify the alert level for a product.
 
     Returns:
-        "PRICE_ERROR" — price is >=45% below Idealo best, or branded product under MAX_ABS_PRICE_FOR_BRANDS
+        "PRICE_ERROR" — price is >=45% below Idealo best, or branded product under MAX_ABS_PRICE_FOR_BRANDS with real discount
         "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount
         None — does not qualify for any alert
     """
@@ -143,8 +143,14 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
     max_price = config.get("MAX_ABS_PRICE_FOR_BRANDS", 150)
     min_discount = config.get("MIN_DISCOUNT_PERCENT", 45)
 
+    # Regola tassativa: se discount <= 0 e nessuno sconto reale da Idealo, scarta immediatamente
+    if discount <= 0 and (not price_validated or real_discount <= 0):
+        return None
+
     # Override: branded product sotto la soglia di prezzo assoluto (es. laptop a meno di 150€)
-    if current_price > 0 and current_price < max_price:
+    # Scatta SOLO se c'è uno sconto effettivo (discount >= 15 o real_discount >= 20)
+    has_effective_discount = discount >= 15 or (price_validated and real_discount >= 20)
+    if current_price > 0 and current_price < max_price and has_effective_discount:
         return "PRICE_ERROR"
 
     if price_validated:

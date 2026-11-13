@@ -209,6 +209,13 @@ class AmazonScraper:
             """
         )
 
+        # Forzatura cookie regionali italiani per prezzi comprensivi di IVA 22%
+        await self._context.add_cookies([
+            {"name": "sp-cdn", "value": "\"L5Z9:IT\"", "domain": ".amazon.it", "path": "/"},
+            {"name": "lc-acbit", "value": "it_IT", "domain": ".amazon.it", "path": "/"},
+            {"name": "i18n-prefs", "value": "EUR", "domain": ".amazon.it", "path": "/"},
+        ])
+
     async def _rotate_context(self) -> None:
         """Chiude il context corrente e ne crea uno nuovo con UA e viewport diversi.
 
@@ -255,6 +262,29 @@ class AmazonScraper:
                     pass
             else:
                 await asyncio.sleep(2)
+
+            # Forzatura geolocalizzazione CAP Roma (00100) via Glow per garantire IVA 22%
+            try:
+                glow_url = "https://www.amazon.it/portal-migration/hz/glow/address-change?actionSource=glow"
+                glow_payload = {
+                    "locationType": "LOCATION_INPUT",
+                    "zipCode": "00100",
+                    "deviceType": "web",
+                    "pageType": "Search",
+                }
+                glow_resp = await page.request.post(
+                    glow_url,
+                    data=glow_payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10_000,
+                )
+                logger.info(
+                    "Amazon Glow zip code impostato su 00100 Roma (status: %s)",
+                    glow_resp.status if glow_resp else "N/A",
+                )
+            except Exception as glow_exc:
+                logger.debug("Impostazione CAP Amazon Glow fallita (non bloccante): %s", glow_exc)
+
             self._warmed_up = True
             logger.info("Sessione Amazon inizializzata con successo (HTTP %s, titolo '%s')", status, title[:60])
         except Exception as exc:

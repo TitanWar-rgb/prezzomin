@@ -54,31 +54,70 @@ def init_db() -> None:
     logger.info("Database inizializzato: %s", path)
 
 
+def _get_all_db_paths() -> list[Path]:
+    """Restituisce tutti i percorsi dei database SQLite: quello corrente e quelli degli altri worker."""
+    current = get_db_path().resolve()
+    db_paths = {current}
+
+    # Cerca tutti i database presenti nella cartella db/ (es. worker_*.db)
+    db_dir = Path(__file__).parent / "db"
+    if db_dir.exists() and db_dir.is_dir():
+        for p in db_dir.glob("*.db"):
+            db_paths.add(p.resolve())
+
+    # Includi eventuale prezzomin.db nella root se esiste
+    root_db = (Path(__file__).parent / "prezzomin.db").resolve()
+    if root_db.exists():
+        db_paths.add(root_db)
+
+    return list(db_paths)
+
+
 def is_recently_notified(asin: str, hours: int = 24) -> bool:
-    """Controlla se un ASIN è stato notificato nelle ultime *hours* ore.
+    """Controlla se un ASIN è stato notificato nelle ultime *hours* ore
+    nel database corrente o in qualsiasi altro database dei worker (cartella db/).
 
     Args:
         asin: Codice ASIN del prodotto.
         hours: Finestra temporale in ore.
 
     Returns:
-        True se già notificato entro la finestra, False altrimenti.
+        True se già notificato entro la finestra da qualsiasi worker, False altrimenti.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-    with _connection() as conn:
-        row = conn.execute(
-            "SELECT notified_at FROM notified_asins WHERE asin = ?",
-            (asin,),
-        ).fetchone()
-    if row is None:
-        return False
-    try:
-        notified = datetime.fromisoformat(row["notified_at"]).replace(
-            tzinfo=timezone.utc
-        )
-    except (ValueError, TypeError):
-        return False
-    return notified > cutoff
+    db_paths = _get_all_db_paths()
+
+    for path in db_paths:
+        if not path.exists():
+            continue
+        try:
+            conn = sqlite3.connect(str(path), timeout=3.0)
+            conn.row_factory = sqlite3.Row
+            try:
+                row = conn.execute(
+                    "SELECT notified_at FROM notified_asins WHERE asin = ?",
+                    (asin,),
+                ).fetchone()
+                if row and row["notified_at"]:
+                    try:
+                        notified = datetime.fromisoformat(str(row["notified_at"]))
+                        if notified.tzinfo is None:
+                            notified = notified.replace(tzinfo=timezone.utc)
+                        if notified > cutoff:
+                            logger.debug(
+                                "ASIN %s già notificato nel database %s (il %s)",
+                                asin, path.name, notified,
+                            )
+                            return True
+                    except (ValueError, TypeError):
+                        pass
+            finally:
+                conn.close()
+        except sqlite3.Error as exc:
+            logger.debug("Errore lettura database %s durante deduplicazione: %s", path.name, exc)
+            continue
+
+    return False
 
 
 def mark_notified(
