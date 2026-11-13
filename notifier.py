@@ -76,23 +76,10 @@ def _send_message(
     return False
 
 
-def send_telegram_alert(
-    bot_token: str,
-    chat_id: str,
-    product: dict[str, Any],
-) -> bool:
-    """Invia un alert formattato in base all'alert_level del prodotto.
+def format_alert_message(product: dict[str, Any]) -> str:
+    """Formatta il messaggio di alert HTML per Telegram.
 
-    Supporta due livelli: PRICE_ERROR e SUPER_DEAL, con informazioni
-    su condizione, prezzo Idealo e risparmio reale.
-
-    Args:
-        bot_token: Token del bot Telegram.
-        chat_id: ID della chat di destinazione.
-        product: Dizionario prodotto arricchito dal PriceValidator.
-
-    Returns:
-        True se inviato con successo.
+    Supporta alert PRICE_ERROR, SUPER_DEAL e combinazioni coupon stacking.
     """
     alert_level = product.get("alert_level", "PRICE_ERROR")
     asin = product.get("asin", "N/A")
@@ -107,54 +94,66 @@ def send_telegram_alert(
     real_discount = product.get("real_discount_percent", 0.0)
     price_validated = product.get("price_validated", False)
 
+    # Info coupon
+    has_coupon = product.get("has_coupon", False)
+    coupon_label = product.get("coupon_label", "")
+    final_price = product.get("final_price", current)
+    total_discount_percent = product.get("total_discount_percent", discount)
+    total_savings = product.get("total_savings", 0.0)
+
     link = f"https://www.amazon.it/dp/{asin}"
     prime_label = "✅ Prime" if is_prime else "❌ Non Prime"
     fulfilled_label = (
         "📦 Venduto/Spedito da Amazon" if is_fulfilled else "📦 Venditore terzo"
     )
 
-    if alert_level == "PRICE_ERROR":
+    if has_coupon and total_discount_percent >= 50:
+        header = "💣 SUPER COMBO SCONTO + COUPON 💣"
+    elif alert_level == "PRICE_ERROR":
         header = "🚨 ERRORE DI PREZZO PROBABILE 🚨"
     else:
         header = "🔥 SUPER AFFARE VERIFICATO 🔥"
 
-    # Calcola risparmio
-    if price_validated and idealo_best is not None:
-        savings = idealo_best - current
-        discount_display = real_discount
-    else:
-        savings = original - current if original > current else 0.0
-        discount_display = discount
-
-    # Costruisci sezione prezzi
     category_name = product.get("category_name")
-    cat_line = f"🏷️ Reparto: <b>{_escape_html(category_name)}</b>\n" if category_name else ""
-
     lines: list[str] = [
         f"{header}\n",
         f"<b>{_escape_html(title)}</b>\n",
-        cat_line,
-        f"📦 Condizione: {condition}",
-        f"💰 Prezzo Amazon: <b>€{current:.2f}</b>",
     ]
+    if category_name:
+        lines.append(f"🏷️ Reparto: <b>{_escape_html(category_name)}</b>")
 
-    if alert_level == "PRICE_ERROR" and original > 0:
-        lines.append(f"💸 Prezzo originale: <s>€{original:.2f}</s>")
+    lines.append(f"📦 Condizione: {condition}")
 
-    if price_validated and idealo_best is not None:
-        lines.append(f"🏪 Miglior prezzo Idealo: €{idealo_best:.2f}")
-        lines.append(
-            f"🔥 Risparmio reale: <b>-{discount_display:.0f}% (€{savings:.2f})</b>"
-        )
+    if has_coupon:
+        lines.append(f"💰 Prezzo al check-out: <b>€{final_price:.2f}</b>")
+        lines.append(f"🎟️ Coupon: <b>{coupon_label}</b> (spunta la casella verde prima di acquistare!)")
+        lines.append(f"Prezzo Amazon di partenza: €{current:.2f}")
+        if original > 0:
+            lines.append(f"💸 Prezzo originale barrato: <s>€{original:.2f}</s>")
+        lines.append(f"🔥 Risparmio complessivo: <b>-{total_discount_percent:.0f}% (€{total_savings:.2f})</b>")
+        if price_validated and idealo_best is not None:
+            lines.append(f"🏪 Miglior prezzo Idealo: €{idealo_best:.2f}")
     else:
-        lines.append("⚠️ Non trovato su Idealo — sconto basato su prezzo Amazon")
-        lines.append(
-            f"🔥 Sconto Amazon: <b>-{discount_display:.0f}% (€{savings:.2f})</b>"
-        )
+        lines.append(f"💰 Prezzo Amazon: <b>€{current:.2f}</b>")
+        if alert_level == "PRICE_ERROR" and original > 0:
+            lines.append(f"💸 Prezzo originale: <s>€{original:.2f}</s>")
+
+        if price_validated and idealo_best is not None:
+            savings = idealo_best - current
+            lines.append(f"🏪 Miglior prezzo Idealo: €{idealo_best:.2f}")
+            lines.append(
+                f"🔥 Risparmio reale: <b>-{real_discount:.0f}% (€{savings:.2f})</b>"
+            )
+        else:
+            savings = original - current if original > current else 0.0
+            lines.append("⚠️ Non trovato su Idealo — sconto basato su prezzo Amazon")
+            lines.append(
+                f"🔥 Sconto Amazon: <b>-{discount:.0f}% (€{savings:.2f})</b>"
+            )
 
     lines.append("")
     lines.append(prime_label)
-    if alert_level == "PRICE_ERROR":
+    if alert_level == "PRICE_ERROR" or (has_coupon and total_discount_percent >= 50):
         lines.append(fulfilled_label)
 
     lines.append("")
@@ -162,11 +161,43 @@ def send_telegram_alert(
     lines.append("")
     lines.append(f"<code>{asin}</code>")
 
-    text = "\n".join(lines)
+    return "\n".join(lines)
+
+
+def send_telegram_alert(
+    bot_token: str,
+    chat_id: str,
+    product: dict[str, Any],
+) -> bool:
+    """Invia un alert formattato in base all'alert_level del prodotto.
+
+    Supporta alert PRICE_ERROR, SUPER_DEAL e combinazioni coupon stacking.
+
+    Args:
+        bot_token: Token del bot Telegram.
+        chat_id: ID della chat di destinazione.
+        product: Dizionario prodotto arricchito dal PriceValidator e scraper.
+
+    Returns:
+        True se inviato con successo.
+    """
+    alert_level = product.get("alert_level", "PRICE_ERROR")
+    asin = product.get("asin", "N/A")
+    current = product.get("current_price", 0.0)
+    has_coupon = product.get("has_coupon", False)
+    final_price = product.get("final_price", current)
+    total_discount = product.get("total_discount_percent", product.get("discount_percent", 0.0))
+    coupon_label = product.get("coupon_label", "")
+
+    text = format_alert_message(product)
 
     logger.info(
-        "Invio alert [%s] per ASIN %s – €%.2f (-%0.f%%)",
-        alert_level, asin, current, discount_display,
+        "Invio alert [%s] per ASIN %s – €%.2f (-%0.f%%)%s",
+        alert_level,
+        asin,
+        final_price if has_coupon else current,
+        total_discount,
+        f" [COUPON {coupon_label}]" if has_coupon else "",
     )
     return _send_message(bot_token, chat_id, text)
 

@@ -131,10 +131,22 @@ def _classify_alert(product: dict[str, Any], config: dict[str, Any]) -> str | No
     """Classify the alert level for a product.
 
     Returns:
-        "PRICE_ERROR" — price is >=45% below Idealo best, or branded product under MAX_ABS_PRICE_FOR_BRANDS with real discount
+        "PRICE_ERROR" — price is >=45% below Idealo best, branded product under MAX_ABS_PRICE, or high coupon combo
         "SUPER_DEAL" — price is >=25% below Idealo best, or >=25% Amazon discount
         None — does not qualify for any alert
     """
+    # Valutazione convenienza Coupon & Doppi Sconti (Coupon Stacking)
+    if product.get("has_coupon"):
+        final_price = product.get("final_price", product.get("current_price", 0.0))
+        total_discount = product.get("total_discount_percent", product.get("discount_percent", 0.0))
+        max_price = config.get("MAX_ABS_PRICE_FOR_BRANDS", 150)
+
+        if total_discount >= 45 or (final_price < max_price and total_discount >= 20):
+            return "PRICE_ERROR"
+        if total_discount >= 25:
+            return "SUPER_DEAL"
+        return None
+
     price_validated = product.get("price_validated", False)
     real_discount = product.get("real_discount_percent", 0.0)
     discount = product.get("discount_percent", 0.0)
@@ -271,9 +283,9 @@ async def _main_loop(config: dict[str, Any]) -> None:
                         mark_notified(
                             asin=asin,
                             title=product.get("title", ""),
-                            price=product.get("current_price", 0.0),
+                            price=product.get("final_price", product.get("current_price", 0.0)),
                             original_price=product.get("original_price", 0.0),
-                            discount_percent=product.get("discount_percent", 0.0),
+                            discount_percent=product.get("total_discount_percent", product.get("discount_percent", 0.0)),
                         )
                         alerts_sent += 1
 

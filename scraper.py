@@ -87,6 +87,110 @@ def _parse_italian_price(raw: str) -> float | None:
         return None
 
 
+def parse_coupon(
+    text: str, current_price: float, is_coupon_context: bool = False
+) -> tuple[str, float] | None:
+    """Riconosce un coupon da una stringa di testo (percentuale o importo fisso in euro).
+
+    Args:
+        text: Testo estratto dalla card o badge coupon (es. 'Applica coupon 20%', 'Risparmia 15 € al check-out').
+        current_price: Prezzo di vendita corrente su Amazon.
+        is_coupon_context: True se il testo proviene da un elemento specificamente dedicato ai coupon.
+
+    Returns:
+        Tupla (coupon_label, coupon_discount_euro) o None se non riconosciuto.
+        coupon_label es.: "-20%" o "-15.00€".
+    """
+    if not text or current_price <= 0:
+        return None
+    text_lower = text.lower()
+
+    # Ignora 'Iscriviti e risparmia' (Subscribe & Save) se non è un coupon
+    if "iscriviti e risparmia" in text_lower and "coupon" not in text_lower:
+        return None
+
+    # 1. Coupon percentuale: "Applica coupon 20%", "Coupon 30%", "Risparmia 15% al check-out"
+    m_pct = re.search(r"(?:coupon|risparmia|sconto)[^\d%€]{0,25}(\d+(?:[.,]\d+)?)\s*%", text_lower)
+    if not m_pct:
+        m_pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%\s*(?:di sconto|coupon)", text_lower)
+    if not m_pct and (is_coupon_context or "coupon" in text_lower):
+        m_pct = re.search(r"[-]?\s*(\d+(?:[.,]\d+)?)\s*%", text_lower)
+
+    if m_pct:
+        pct = float(m_pct.group(1).replace(",", "."))
+        if 0 < pct <= 95:
+            discount_amount = round((current_price * pct) / 100.0, 2)
+            pct_label = f"-{int(pct)}%" if pct.is_integer() else f"-{pct:.1f}%"
+            return pct_label, discount_amount
+
+    # 2. Coupon fisso in euro: "Risparmia 15 € al check-out", "Coupon di 10,00€", "Applica coupon 10€"
+    m_eur = re.search(
+        r"(?:coupon|risparmia|sconto)[^\d€]{0,25}(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)",
+        text_lower,
+    )
+    if not m_eur:
+        m_eur = re.search(
+            r"(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)[^\d€]{0,25}(?:al check-out|con coupon)",
+            text_lower,
+        )
+    if not m_eur and (is_coupon_context or "coupon" in text_lower):
+        m_eur = re.search(r"[-]?\s*(?:€\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*€)", text_lower)
+
+    if m_eur:
+        raw_val = m_eur.group(1) or m_eur.group(2)
+        val = float(raw_val.replace(",", "."))
+        if val > 0:
+            coupon_label = f"-{val:.2f}€"
+            return coupon_label, round(val, 2)
+
+    return None
+
+
+def calculate_coupon_metrics(
+    current_price: float,
+    original_price: float,
+    coupon_label: str | None,
+    coupon_discount: float,
+    base_discount_percent: float = 0.0,
+) -> dict[str, Any]:
+    """Calcola prezzi finali, sconti complessivi e risparmio totale con o senza coupon."""
+    if coupon_label and coupon_discount > 0:
+        final_price = round(max(0.0, current_price - coupon_discount), 2)
+        if original_price > 0:
+            total_discount_percent = ((original_price - final_price) / original_price) * 100.0
+            total_savings = original_price - final_price
+        else:
+            total_discount_percent = (
+                ((current_price - final_price) / current_price) * 100.0 if current_price > 0 else 0.0
+            )
+            total_savings = coupon_discount
+
+        total_discount_percent = max(0.0, total_discount_percent)
+        return {
+            "has_coupon": True,
+            "coupon_label": coupon_label,
+            "coupon_discount": round(coupon_discount, 2),
+            "final_price": final_price,
+            "total_discount_percent": round(total_discount_percent, 1),
+            "total_savings": round(total_savings, 2),
+        }
+
+    # Nessun coupon presente
+    savings = (
+        round(original_price - current_price, 2)
+        if (original_price and current_price and original_price > current_price)
+        else 0.0
+    )
+    return {
+        "has_coupon": False,
+        "coupon_label": None,
+        "coupon_discount": 0.0,
+        "final_price": current_price,
+        "total_discount_percent": round(base_discount_percent, 1),
+        "total_savings": savings,
+    }
+
+
 async def _block_resources(route: Any, request: Any) -> None:
     """Route handler che blocca risorse non essenziali per velocizzare il caricamento."""
     if request.resource_type in BLOCKED_RESOURCE_TYPES:
@@ -556,6 +660,14 @@ class AmazonScraper:
         # Evolution 2: Condizione prodotto
         condition = await self._extract_condition(card)
 
+        # Riconoscimento Coupon & Doppi Sconti (Coupon Stacking)
+        coupon_data = await self._extract_coupon(
+            card,
+            current_price if current_price is not None else 0.0,
+            original_price if original_price is not None else 0.0,
+            discount_percent,
+        )
+
         return {
             "asin": asin.strip(),
             "title": title,
@@ -567,7 +679,76 @@ class AmazonScraper:
             "is_amazon_fulfilled": is_fulfilled,
             "condition": condition,
             "is_warehouse": False,
+            "has_coupon": coupon_data["has_coupon"],
+            "coupon_label": coupon_data["coupon_label"],
+            "coupon_discount": coupon_data["coupon_discount"],
+            "final_price": coupon_data["final_price"],
+            "total_discount_percent": coupon_data["total_discount_percent"],
+            "total_savings": coupon_data["total_savings"],
         }
+
+    async def _extract_coupon(
+        self,
+        card: Any,
+        current_price: float,
+        original_price: float,
+        discount_percent: float,
+    ) -> dict[str, Any]:
+        """Estrae coupon percentuale o fisso dalla card dei risultati di ricerca.
+
+        Scansiona la card cercando .s-coupon-unclipped, span[data-action='s-coupon'],
+        badge coupon o testi contenenti "coupon" / "risparmia".
+        """
+        if current_price <= 0:
+            return calculate_coupon_metrics(
+                current_price, original_price, None, 0.0, discount_percent
+            )
+
+        # 1. Selettori specifici Amazon per i coupon
+        coupon_selectors = [
+            ".s-coupon-unclipped",
+            "span[data-action='s-coupon']",
+            "span.s-coupon-highlight-color",
+            "span.s-coupon-clipped",
+            "[data-component-type='s-coupon-component']",
+            "span[class*='s-coupon']",
+        ]
+        for sel in coupon_selectors:
+            try:
+                el = await card.query_selector(sel)
+                if el:
+                    txt = (await el.inner_text() or "").strip()
+                    if txt:
+                        parsed = parse_coupon(txt, current_price, is_coupon_context=True)
+                        if parsed:
+                            label, discount_val = parsed
+                            return calculate_coupon_metrics(
+                                current_price, original_price, label, discount_val, discount_percent
+                            )
+            except Exception:
+                continue
+
+        # 2. Scansione badge o righe di testo della card con parole chiave coupon/risparmia
+        try:
+            card_text = await card.inner_text() or ""
+            for line in card_text.splitlines():
+                line_clean = line.strip()
+                line_lower = line_clean.lower()
+                if ("coupon" in line_lower or "risparmia" in line_lower) and (
+                    "%" in line_clean or "€" in line_clean
+                ):
+                    parsed = parse_coupon(line_clean, current_price, is_coupon_context=False)
+                    if parsed:
+                        label, discount_val = parsed
+                        return calculate_coupon_metrics(
+                            current_price, original_price, label, discount_val, discount_percent
+                        )
+        except Exception:
+            pass
+
+        return calculate_coupon_metrics(
+            current_price, original_price, None, 0.0, discount_percent
+        )
 
     async def _extract_condition(self, card: Any) -> str:
         """Estrae la condizione del prodotto dalla card (Warehouse deals).
